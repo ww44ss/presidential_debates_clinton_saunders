@@ -1,0 +1,15 @@
+base
+methods
+datasets
+utils
+grDevices
+graphics
+stats
+NLP
+tm
+RWeka
+SnowballC
+ggplot2
+xtable
+reshape2
+dplyr

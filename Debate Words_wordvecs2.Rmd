@@ -1,0 +1,1387 @@
+---
+title: "WORD VECTORS AND PRESIDENTIAL DEBATES IN R"
+author: "WW44SS"
+date: "April 5, 2016"
+output: 
+    html_document:
+        theme: united
+---
+<style>
+  .col2 {
+    columns: 2 300px;         /* number of columns and width in pixels */
+    -webkit-columns: 2 300px; /* chrome, safari */
+    -moz-columns: 2 300px;    /* firefox */
+  }
+  .col3 {
+    columns: 3 200px;
+    -webkit-columns: 3 200px;
+    -moz-columns: 3 200px;
+  }
+</style>
+
+<style>
+tr:hover {background-color: #BBFFFF}
+table { 
+    width: 80%;
+    display: table;
+    border-collapse: collapse;
+    border-spacing: 18px;
+    border-color: #AAAAFF;
+    background-color: #AFEEEE;
+    padding: 2px;
+    font: 12px arial, sans-serif;
+}
+th, td{
+    text-align: center;
+}
+</style>
+
+###SUMMARY
+ 
+This continuation of [BIAS AND CONTEXT IN PRESIDENTIAL DEBATE TEXTS](https://rpubs.com/ww44ss/Debate_Text) and [HEAT MAPS & LINGUISTICS OF DEBATE SPEECH in R](rpubs.com/ww44ss/HeatMapRDebates), which focused on a "Bag of Words" approach to analyzing the text of Presidential Debates for the 2016 Election Cycle extends the analysis to include "sentiment" based on a word vectors model.
+
+Word vectors, which rely on deep-learning based word-correlation analysis of texts with ~ billions of words, are well known to provide interesting linear structures in the word-vector space. The intention here is to explore these in relation to detecting bias and differences in political speech. 
+
+###DATA SOURCES AND METHODS
+The text of the presidential debates are downloaded from the [UCSB Presidency Project](http://www.presidency.ucsb.edu/debates.php). Transcripts were pasted into Apple Pages and stored as unformatted .txt files.  
+
+Training word-vectors typically relies on corpora of ~billions of words, far more than the ~100,000 words spoken in the Debates. Hence rather than train the word vectors on the debate text, we'll rely on the "pre-trained" __GloVe__ vectors from [Jeffrey Pennington, Richard Socher, and Christopher D. Manning. 2014](http://nlp.stanford.edu/pubs/glove.pdf) and use them as a basis for analysis.
+
+
+```{r, "find debate files in directory", echo=FALSE, warning=FALSE, message=FALSE}
+
+    ## 
+    ## .txt file detection
+    
+
+    directory <- "/Users/winstonsaunders/Documents/presidential_debates_clinton_saunders/"
+    file.list <- list.files(directory)
+    
+    republican.files <- file.list[grepl("Republican", file.list)]
+    democratic.files <- file.list[grepl("Democratic", file.list)]
+
+
+```
+
+```{r, "load local functions", echo=FALSE}
+
+## LOAD LOCAL FUNCTIONS
+
+    ## load text of debate files
+    source(paste0(directory, "load_debate_text.R"))
+    ## select candidate text
+    source(paste0(directory, "candidate_text.R"))
+    ## turn candidate text in a Text Corpus
+    source(paste0(directory, "text_tc.R"))
+    ## selects candidate text and then turns that into a Text Corpus
+    source(paste0(directory, "candidate_text_tc.R"))
+    ## enable printing of multiple plots
+    source(paste0(directory, "multiplot.R"))
+    ## vector normialize
+    source(paste0(directory, "vector.normalize.R"))
+
+```
+
+```{r, "load r libraries", echo=FALSE, warning=FALSE, message=FALSE}
+
+    ## check for installed packages
+    if(! ("tm" %in% rownames(installed.packages())))      {install.packages("tm")}
+    if(! ("RWeka" %in% rownames(installed.packages())))   {install.packages("RWeka")}
+    if(! ("SnowballC" %in% rownames(installed.packages()))) {install.packages("SnowballC")}
+    if(! ("ggplot2" %in% rownames(installed.packages()))) {install.packages("ggplot2")}
+    if(! ("xtable" %in% rownames(installed.packages())))  {install.packages("xtable")}
+    if(! ("reshape2" %in% rownames(installed.packages())))  {install.packages("reshape2")}
+    if(! ("dplyr" %in% rownames(installed.packages())))  {install.packages("dplyr")}
+
+    library(tm)
+    library(RWeka)
+    library(SnowballC)
+    library(ggplot2)
+    library(xtable)
+    library(reshape2)
+    library(dplyr)
+```
+
+```{r, "get text files", echo=FALSE, warning=FALSE, message=FALSE}
+
+
+    ## THIS CODE CHUNK GETS ALL THE CANDIDATE TEXT FROM FILES STORED LOCALLY
+
+    ## create dummy files for all republicans
+    r_all <- NULL
+
+    for (file_name in republican.files){ 
+        ## load the text
+        r_temp <- file_name %>% load_debate_text
+        r_all <- r_all %>% rbind(r_temp)
+    }
+
+    ## create dummy file for all dems
+    d_all <- NULL
+
+    for (file_name in democratic.files){ 
+        ## load the text
+        d_temp <- file_name %>% load_debate_text
+        d_all <-  d_all %>% rbind(d_temp)
+    }
+
+```
+
+```{r, echo=TRUE, warning=FALSE}
+    ##FILTER TEXT
+    word.filter <- "gun"
+```
+
+```{r, echo=FALSE}
+## Start and Stop Word Frequency Rank
+    n.s <- 1    ## Start
+    n.w <- 10   ## Number of words
+```
+
+```{r, echo=FALSE, warning=FALSE}
+    
+    ## Get Candidate Text
+    trump_text <- "TRUMP" %>% candidate_text(r_all, word.filter)
+    cruz_text <- "CRUZ" %>% candidate_text(r_all, word.filter)
+    rubio_text <- "RUBIO" %>% candidate_text(r_all, word.filter)
+    sanders_text <- "SANDERS" %>% candidate_text(d_all, word.filter)
+    clinton_text <- "CLINTON" %>% candidate_text(d_all, word.filter)
+    
+    ## CREATE TCs FOR EACH CANDIDATE
+    trump_all <- "TRUMP" %>% candidate_text_tc(r_all, word.filter)
+    rubio_all <- "RUBIO" %>% candidate_text_tc(r_all, word.filter)
+    fiorina_all <- "FIORINA" %>% candidate_text_tc(r_all, word.filter)
+    carson_all <- "CARSON" %>% candidate_text_tc(r_all, word.filter)
+    cruz_all <- "CRUZ" %>% candidate_text_tc(r_all, word.filter)
+    huckabee_all <- "HUCKABEE" %>% candidate_text_tc(r_all, word.filter)
+    bush_all <- "BUSH" %>% candidate_text_tc(r_all, word.filter)
+
+    clinton_all <- "CLINTON" %>% candidate_text_tc(d_all, word.filter)
+    sanders_all <- "SANDERS" %>% candidate_text_tc(d_all, word.filter)
+    
+```
+
+###CANDIDATE WORD FREQUENCIES
+
+We can check word frequency directly by tokenizing and counting single words. (Note: this is a partial duplication of the work done in the first analysis. But as the word vector analysis below leverages some of the output of this, it's reproduced here in a slightly different format as a control of quality)
+
+```{r, "create TDM", echo=FALSE}
+
+## Create Term_Document_Matrices
+
+TDM_trump <- trump_all %>% TermDocumentMatrix
+TDM_rubio <- rubio_all %>% TermDocumentMatrix
+TDM_fiorina <- fiorina_all %>% TermDocumentMatrix
+TDM_carson <- carson_all %>% TermDocumentMatrix
+TDM_cruz <- cruz_all %>% TermDocumentMatrix
+TDM_huckabee <- huckabee_all %>% TermDocumentMatrix
+TDM_bush <- bush_all %>% TermDocumentMatrix
+
+TDM_clinton <- clinton_all %>% TermDocumentMatrix
+TDM_sanders <- sanders_all %>% TermDocumentMatrix
+
+```
+
+```{r, "do word counts", echo=FALSE}
+
+## WORD COUNTS FOR CANDIDATES
+##  This code chunk takes a bunch of TDMs and converts them first to 
+##  the specific vocabulary of each candidate and them produces a table of words
+##
+## INPUT: 
+##      a TDM of candidate speech
+## OUTPUT
+##      merged_candidates: a data frame of words (rows), candidate names (columns) and word counts (data)
+##  
+
+## First convert TDMs to Data Frames
+
+    a <- as.matrix(TDM_trump)
+    b <- as.data.frame(a)
+    df_trump <- b
+    colnames(df_trump) <- "trump"
+    
+    words_trump <- sum(df_trump)
+    vocab_trump <- nrow(df_trump)
+    
+    a <- as.matrix(TDM_rubio)
+    b <- as.data.frame(a)
+    df_rubio <- b
+    colnames(df_rubio) <- "rubio"
+    
+    words_rubio <- sum(df_rubio)
+    vocab_rubio <- nrow(df_rubio)
+    
+    a <- as.matrix(TDM_sanders)
+    b <- as.data.frame(a)
+    df_sanders <- b
+    colnames(df_sanders) <- "sanders"
+    
+    words_sanders <- sum(df_sanders)
+    vocab_sanders <- nrow(df_sanders)
+    
+    a <- as.matrix(TDM_fiorina)
+    b <- as.data.frame(a)
+    df_fiorina <- b
+    colnames(df_fiorina) <- "fiorina"
+    
+    words_fiorina <- sum(df_fiorina)
+    vocab_fiorina <- nrow(df_fiorina)
+    
+    a <- as.matrix(TDM_clinton)
+    b <- as.data.frame(a)
+    df_clinton <- b
+    colnames(df_clinton) <- "clinton"
+    
+    words_clinton <- sum(df_clinton)
+    vocab_clinton <- nrow(df_clinton)
+    
+    a <- as.matrix(TDM_cruz)
+    b <- as.data.frame(a)
+    df_cruz <- b
+    colnames(df_cruz) <- "cruz"
+    
+    words_cruz <- sum(df_cruz)
+    vocab_cruz <- nrow(df_cruz)
+
+
+    #print(head(df_rubio))
+    
+## merge the data frames
+
+    ## merge trump and sanders
+    merged_candidates <- merge(df_trump, df_sanders, by="row.names", all=TRUE)
+    ## assign rownames
+    rownames(merged_candidates) <- merged_candidates$Row.names
+    ## clear $Row.names
+    merged_candidates$Row.names <- NULL
+    ## merge clinton
+    merged_candidates <- merge(merged_candidates, df_clinton, by="row.names", all=TRUE)
+    rownames(merged_candidates) <- merged_candidates$Row.names
+    merged_candidates$Row.names <- NULL
+    ## merge rubio
+    merged_candidates <- merge(merged_candidates, df_rubio, by="row.names", all=TRUE)
+    rownames(merged_candidates) <- merged_candidates$Row.names
+    merged_candidates$Row.names <- NULL
+    ##merge cruz
+    merged_candidates <- merge(merged_candidates, df_cruz, by="row.names", all=TRUE)
+    rownames(merged_candidates) <- merged_candidates$Row.names
+
+    
+
+    ## fix NAs
+    merged_candidates[is.na(merged_candidates)] <- 0
+
+    ## make $Row.names a factor
+    merged_candidates$Row.names <- as.factor(merged_candidates$Row.names)
+
+    ## merged_candidates is now computed
+    
+    ## COMPUTE WORD SUMS
+    
+    ## sum all
+    merged_candidates$all <- merged_candidates$trump + merged_candidates$sanders + merged_candidates$clinton + merged_candidates$rubio + merged_candidates$cruz
+
+    ## sort it
+    merged_candidates <- merged_candidates[with(merged_candidates, order(-all)), ]
+
+    #merged_candidates <- merged_candidates[merged_candidates$all>50,]
+    ## convert Row.names to a factor
+    merged_candidates$Row.names <- as.factor(merged_candidates$Row.names)
+    
+    merged_candidates <- merged_candidates[complete.cases(merged_candidates),]
+    
+    
+    ## This is an exaple of what the data look like (in Jan 2016)
+    #         Row.names trump sanders clinton rubio cruz all
+    # people     people   105     162     117    86   24 494
+    # going       going    84      84      90    56   13 327
+    # think       think    31     110     150    10   13 314
+    # country   country    64     119      56    52   10 301
+    # know         know    47      55     113    37   41 293
+    # will         will    43      48      70    45   55 261
+
+```
+
+There are a total of `r dim(merged_candidates)[1]` words in the combined vocabulary of the candidates.  
+
+```{r, "top words table", echo=FALSE, results="asis"}
+
+    ## create lists sorted by decreasing order of each candidate
+    c_1 <- merged_candidates[with(merged_candidates, order(-clinton)), ]
+    s_1 <- merged_candidates[with(merged_candidates, order(-sanders)), ]
+    tc_1 <- merged_candidates[with(merged_candidates, order(-cruz)), ]
+    t_1 <- merged_candidates[with(merged_candidates, order(-trump)), ]
+    r_1 <- merged_candidates[with(merged_candidates, order(-rubio)), ]
+
+    ## take the top 5 of each
+    
+    n.list <- 5
+    
+    compare_mf <- merge( merge( merge( merge(c_1[1:n.list,], tc_1[1:n.list,], all=TRUE), s_1[1:n.list,], all=TRUE), t_1[1:n.list,], all=TRUE), r_1[1:n.list,], all=TRUE)
+    colnames(compare_mf) <- c("word", "trump", "sanders", "clinton", "rubio","cruz", "all")
+    
+    compare_mf <- compare_mf[with(compare_mf, order(-all)),]
+    
+    ## compute column sums for each candidate
+    trump_sum <- sum(merged_candidates[,"trump"])
+    sanders_sum <- sum(merged_candidates[,"sanders"])
+    clinton_sum <- sum(merged_candidates[,"clinton"])
+    cruz_sum <- sum(merged_candidates[,"cruz"])
+    rubio_sum <- sum(merged_candidates[,"rubio"])
+    sum_all <- sum(merged_candidates[,"all"])
+    sum_row <- c("SUM", trump_sum, sanders_sum, clinton_sum, cruz_sum, rubio_sum, sum_all)
+    
+    #bind rows
+    compare_mf$word <- as.character(compare_mf$word)
+    compare_mf <- rbind(compare_mf, sum_row)
+    
+    print(xtable(unique(compare_mf), digits=0), type='html', comment=FALSE, include.rownames=FALSE, 
+         html.table.attributes='border="3" align="center" ' )
+
+```
+
+__- Hillary Clinton__ spoke `r words_clinton` total words, with a vocabulary of `r vocab_clinton` words.   
+__- Bernie Sanders__ spoke `r words_sanders` total words, with a vocabulary of `r vocab_sanders` words.   
+__- Donald Trump__ spoke `r words_trump` words with a vocabulary of `r vocab_trump` words.  
+__- Ted Cruz__ spoke `r words_cruz` words with a vocabulary of `r vocab_cruz` words.  
+__- Marco Rubio__ spoke `r words_rubio` words with a vocabulary of `r vocab_rubio` words.   
+
+A "heat map" of frequent words shows several interesting patterns. For instance, all candidates but one use the word _"people"_ with high frequency. Conversely, only one candidate mentions the word _"tax"_ frequently.
+
+```{r, "create heat map", echo=FALSE, fig.align="center", fig.height=3, fig.width=9, message=FALSE, warning=FALSE}
+
+    ## this creates a heat map of the same data above
+    
+    ## INPUT:
+    ##      merged_dandidates from above
+    ## OUTPUT: 
+    ##      a plot
+    
+    merged_candidates_p <- merged_candidates[1:min(75, nrow(merged_candidates)), ]
+    
+    ## compute column sums for each candidate
+    merged_candidates_p[,"trump"] <- merged_candidates_p[,"trump"]/sum(merged_candidates[,"trump"])
+    merged_candidates_p[,"sanders"] <- merged_candidates_p[,"sanders"]/sum(merged_candidates[,"sanders"])
+    merged_candidates_p[,"clinton"] <- merged_candidates_p[,"clinton"]/sum(merged_candidates[,"clinton"])
+    merged_candidates_p[,"cruz"] <- merged_candidates_p[,"cruz"]/sum(merged_candidates[,"cruz"])
+    merged_candidates_p[,"rubio"] <- merged_candidates_p[,"rubio"]/sum(merged_candidates[,"rubio"])
+    merged_candidates_p[,"all"] <- merged_candidates_p[,"all"]/sum(merged_candidates[,"all"])
+
+## use dplyr
+
+    mcp_m <- melt(merged_candidates_p)
+    colnames(mcp_m) <- c("word", "candidate", "frequency")
+    
+
+    
+    p <- ggplot(mcp_m, aes(as.factor(word),candidate))
+    p <-  p + geom_tile(aes(fill=frequency), color="white")
+    p <-  p + scale_fill_gradient2(low = "white", mid = "dodgerblue3", high = "red", midpoint = max(mcp_m$frequency)/2, na.value="grey50")
+    p <- p + ggtitle("candidate/word heatmap")
+    p <- p + xlab("word")
+    p <- p + theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust=0.5))
+    p <- p + ylab("candidate")
+    
+    p
+```
+ 
+```{r, "create merged plot", echo = FALSE}
+library(reshape2)
+merged_plot <- melt(merged_candidates[merged_candidates$all>10,])
+colnames(merged_plot) <- c("words", "candidate", "count")
+```
+
+###WORD VECTOR ANALYSIS
+
+The first step is to load the GloVe word vectors.  
+
+```{r, "load word vectors", echo=9:10, cache=TRUE}
+
+## GET WORD VECTORS AND WORD LIST
+    ##  creates a vector of words and a vector table
+    ## INPUTS
+    ##      read the lines of the glove vectors
+    ## OUTPUTS
+    ##      word.list - a vector of words
+    
+    number.of.words <- 9999
+    word.vector.file <- "glove.6B.300d.txt"
+    
+    ## start timer
+    t.init <- Sys.time()
+    
+    ## get word vectors
+    word.vectors <- readLines(paste0(directory, word.vector.file), n=number.of.words)
+    
+    ## split the data into individual elements
+    word.vector.list <- matrix(strsplit(word.vectors, " "), nrow=length(word.vectors), byrow = TRUE)
+
+    ## put the vector into a data frame
+    word.vector.df <- data.frame(matrix(unlist(word.vector.list), nrow=length(word.vector.list), byrow=T))
+    
+    ## format the df
+    word.vector.df[,1] <- as.character(word.vector.df[,1])
+    for(i in 2:ncol(word.vector.df))     word.vector.df[,i] <- as.numeric(as.character(word.vector.df[,i]))
+        
+    ## assign separate list of words
+    word.list <- word.vector.df[,1]
+    
+    t.fin <- Sys.time() - t.init
+    
+    #word.list[1:10]
+    ##[1] "the" ","   "."   "of"  "to"  "and" "in"  "a"   "\""  "'s"
+
+```
+
+The analysis uses the first `r number.of.words` of the GloVe word vectors `r word.vector.file`. It tool `r signif(t.fin, digits = 3)` seconds to load the word vetors and put them into usable form.
+
+####WORD VECTOR SIMILARITY
+
+Before delving into the full analysis, it's helpful to look at vector representations of familiar word-pairs to help build an intuitive sense of how vector representations of words facilitate their coparison and analysis.  
+
+Vectors of individual words are easily extracted from the word vector data frame using simple _regular expressions_ syntax.
+
+```{r, eval=FALSE}
+man.vec <- vector.normalize(word.vector.df[grep( "^man$", word.list), -1])
+```
+
+The vector $\textbf{man.vec}$ is normalized to unit length representing the word _`r word.list[grep("^man$", word.list)]`_.
+
+The colSums command, irrelevant in this specific case, is to ensure all selected vectors are added in case of a more general regular expression search. This generaization isn't useful right now, but may be useful later. For example, selecting strings starting with _"govern"_  
+
+```{r "define function vectorize.word", echo=FALSE}
+
+    vectorize.word <- function(word.x = "test", w.list = word.list){
+        ## compute normalized word vector
+        ## inputs: 
+        ##      wrod.x = sample word
+        ##      w.list = word.list data frame
+        ##  outputs:
+        ##      vec = a word vector
+    
+    vec <- word.x %>% 
+        paste0("^", ., "$") %>%
+        grep(w.list) %>%
+        slice(word.vector.df[ , -1], .) %>%
+        vector.normalize
+    
+    return(vec)          
+}
+
+```
+
+```{r "define function vectorize.stem", echo=FALSE}
+
+    vectorize.stem <- function(word.x = "test", w.list = word.list){
+        ## compute normalized word vector with just a leading stem regex "^word.x"
+        ## inputs: 
+        ##      word.x = sample word
+        ##      w.list = word.list data frame
+        ##  outputs:
+        ##      vec = a word vector
+    
+    vec <- word.x %>% 
+        paste0("^", .) %>%
+        grep(w.list) %>%
+        slice(word.vector.df[ , -1], .) %>%
+        colSums %>%
+        vector.normalize
+    
+    return(vec)          
+}
+
+```
+
+```{r, eval=FALSE}
+govern.vec <- vector.normalize(word.vector.df[grep( "^govern", word.list), -1])
+```
+
+```{r, echo=FALSE}
+govern.words <- word.list[grep("^govern", word.list)]
+```
+
+creates a unit vector representing the following `r length(govern.words)` words: _`r paste(govern.words[1:(length(govern.words)-1)], sep="", collapse=", ")`_*,* and _`r govern.words[length(govern.words)]`_. 
+
+```{r, echo=FALSE}
+wall.vec <- vectorize.word("wall")
+```
+
+```{r, "compute standard word vecs", echo=FALSE}
+
+    ## Compute some individual word vectors
+    
+    fear.vec <- "fear" %>% vectorize.word %>% vector.normalize()
+    courage.vec <- "courage" %>% vectorize.word %>% vector.normalize()
+    brave.vec <- "brave" %>% vectorize.word %>% vector.normalize()
+    anger.vec <- "anger" %>% vectorize.word %>% vector.normalize()
+    compassion.vec <- "compassion" %>% vectorize.word %>% vector.normalize()
+    govern.vec <- "govern" %>% vectorize.word %>% vector.normalize()
+    president.vec <- "president" %>% vectorize.word %>% vector.normalize()
+    government.vec <- "government" %>% vectorize.word %>% vector.normalize()
+    tax.vec <- "tax" %>% vectorize.word %>% vector.normalize()
+    people.vec <- "people" %>% vectorize.word %>% vector.normalize()
+    america.vec <- "america" %>% vectorize.word %>% vector.normalize()
+    country.vec <- "country" %>% vectorize.word %>% vector.normalize()
+    nation.vec <- "nation" %>% vectorize.word %>% vector.normalize()
+    man.vec <- "man" %>% vectorize.word %>% vector.normalize()
+    male.vec <- "male" %>% vectorize.word %>% vector.normalize()
+    female.vec <- "female" %>% vectorize.word %>% vector.normalize()
+    woman.vec <- "woman" %>% vectorize.word %>% vector.normalize()
+    aunt.vec <- "aunt" %>% vectorize.word %>% vector.normalize()
+    uncle.vec <- "uncle" %>% vectorize.word %>% vector.normalize()
+    king.vec <- "king" %>% vectorize.word %>% vector.normalize()
+    queen.vec <- "queen" %>% vectorize.word %>% vector.normalize()
+    mother.vec <- "mother" %>% vectorize.word %>% vector.normalize()
+    father.vec <- "father" %>% vectorize.word %>% vector.normalize()
+    girl.vec <- "girl" %>% vectorize.word %>% vector.normalize()
+    boy.vec <- "boy" %>% vectorize.word %>% vector.normalize()
+  
+        
+``` 
+
+###CANDIDATE WORD VECTORS
+
+As a first comparison, let's explore representing the differences in candidate positions by the most common words of speech. As we've seen above, word frequencies vary significantly between candidates so perhaps some meaning can be extracted.  
+
+```{r, "compute candidate text", echo=FALSE}
+
+trump_txt  <- candidate_text("TRUMP", r_all, word.filter)
+rubio_txt  <- candidate_text("RUBIO", r_all, word.filter)
+cruz_txt  <- candidate_text("CRUZ", r_all, word.filter)
+clinton_txt  <- candidate_text("CLINTON", d_all, word.filter)
+sanders_txt  <- candidate_text("SANDERS", d_all, word.filter)
+
+```   
+
+```{r, "define function candidate_df", echo=FALSE}
+    candidate_df <- function(merged_candidates=merged_candidates, candidate="clinton"){
+    ## this function returns a dataframe of candidate word and normalized frequencies
+    ## INPUT:
+    ##  a merged_candidates dataframe
+    ##
+    #             Row.names trump sanders clinton rubio cruz all
+    #   people       people   105     162     117    86   24 494
+    #   president president    10      25      75    68   30 208
+    #   going         going    84      84      90    56   13 327
+    #   now             now    32      39      48    53   27 199
+    #   tax             tax    16      27      13    53   66 175
+    #   country     country    64     119      57    52   10 302
+    ##
+    ## OUTPUT:
+    ##  a dataframe of ordered and normalized word frequencies
+    #             Row.names     clinton
+    #   think         think 0.015424165
+    #   people       people 0.012030848
+    #   know           know 0.011722365
+    #   well           well 0.010694087
+    #   going         going 0.009254499
+    #   president president 0.007712082
+
+
+    ## grab the appropriate columns      
+        if(tolower(candidate)=="clinton") {
+            candidate_df <- merged_candidates[with(merged_candidates, order(-clinton)), ]
+            candidate_df <- candidate_df[,c(1,4)]
+        }
+            
+        if(tolower(candidate)=="rubio") {
+            candidate_df <- merged_candidates[with(merged_candidates, order(-rubio)), ]
+            candidate_df <- candidate_df[,c(1,5)]
+        }
+            
+        if(tolower(candidate)=="cruz") {
+            candidate_df <- merged_candidates[with(merged_candidates, order(-cruz)), ]
+            candidate_df <- candidate_df[,c(1,6)]
+        }
+    
+        if(tolower(candidate)=="sanders") {
+            candidate_df <- merged_candidates[with(merged_candidates, order(-sanders)), ]
+            candidate_df <- candidate_df[,c(1,3)]
+        }
+    
+        if(tolower(candidate)=="trump") {
+            candidate_df <- merged_candidates[with(merged_candidates, order(-trump)), ]
+            candidate_df <- candidate_df[,c(1,2)]
+        }
+
+    ## normalize the frequencies
+        cv_sum <- sum(candidate_df[,2])
+        candidate_df[,2] <- candidate_df[,2]/cv_sum
+        
+        return(candidate_df)
+    
+    }
+```
+
+```{r, "normalize candidate vectors", echo=FALSE}
+    
+    norm.sanders.df <- candidate_df(merged_candidates, "sanders")
+    norm.trump.df <- candidate_df(merged_candidates, "trump")
+    norm.clinton.df <- candidate_df(merged_candidates, "clinton")
+    norm.cruz.df <- candidate_df(merged_candidates, "cruz")
+    norm.rubio.df <- candidate_df(merged_candidates, "rubio")
+```
+
+```{r, "define function word.vector.agg", echo=FALSE}
+    word.vec.agg <- function (c.df = norm.clinton.df, n.start = 1, n.words = 10, wvd=word.vector.df) {
+        
+        ## WORD VECTOR AGGREGATOR
+        ## This takes a candidate word frequency data frame and converts to an aggregated word vector
+        ##
+        ## INPUTS:
+        ##      c.df = normalized candidate data frame
+        ##      n.words = number of words to aggregate
+        ##      n.start = where in the list to start, default is 1
+        ##      wvd = word vector data frame
+        ## OUTPUTS:
+        ##      a unit vector in the direction of the 
+        
+        word.list.t <- as.character(c.df$Row.names)
+        
+        # pare the vectors down
+        word.list.t <- word.list.t[n.start:(n.start + n.words)]
+        
+        word.vec <- NULL
+        
+        for (word in word.list.t) {
+            ## grab the exact word
+            sub.words <- word.list.t[grep(paste0("^", word, "$"), word.list.t)]
+            ## weighted vector mean
+            t.vec <- wvd[grep(paste0("^",word,"$"), word.list),-1] *c.df[grep(paste0("^",word, "$"), word.list.t),2]
+            ## form the column sum
+            t.vec <- colSums(t.vec)
+            ## bind to word.vec
+            word.vec <- rbind(word.vec, t.vec)
+        }
+        ## form column sum of word.vec
+        #word.vec <- colSums(word.vec)
+        ## normalize
+        #word.vec <- word.vec/sqrt(sum(word.vec*word.vec))
+        
+        word.vec <- vector.normalize(word.vec)
+        
+        return(word.vec)
+    }
+```
+
+
+####BAG OF WORDS AND WORD-VECTORS
+
+```{r, "calculate candidate.vec", echo=FALSE}
+
+    rubio.vec <- word.vec.agg(norm.rubio.df, n.start = n.s, n.words = n.w, word.vector.df)
+    clinton.vec <- word.vec.agg(norm.clinton.df, n.start = n.s, n.words = n.w, word.vector.df)
+    sanders.vec <- word.vec.agg(norm.sanders.df, n.start = n.s, n.words = n.w, word.vector.df)
+    trump.vec <- word.vec.agg(norm.trump.df, n.start = n.s, n.words = n.w, word.vector.df)
+    cruz.vec <- word.vec.agg(norm.cruz.df, n.start = n.s, n.words = n.w, word.vector.df)
+    
+    ## compute deltas from mean
+    vec.mean <- (clinton.vec+sanders.vec+rubio.vec+trump.vec+cruz.vec)/5
+    d.clinton.vec <- clinton.vec-vec.mean
+    d.rubio.vec <- rubio.vec-vec.mean
+    d.sanders.vec <- sanders.vec-vec.mean
+    d.trump.vec <- trump.vec-vec.mean
+    d.cruz.vec <- cruz.vec-vec.mean
+    
+    
+```  
+
+Resulting vectors from the words `r n.s` to `r n.s+n.w` of the candidate "bag of words" filtered for comments containing _`r word.filter`_ and _`r number.of.words`_ and from _`r word.vector.file`_.  
+
+Negative values are represented in red and positive values in green. We can see some patterns distinguishing candidates in the vectors themselves. If you squint you can see some similiarities and differences which are consistent with the above word frequency data. For instance, the $\textbf{sanders.vec}$ appears more similar to $\textbf{clinton.vec}$ than to $\textbf{rubio.vec}$. However, beyond these superficial comparisons, there's little that can be inferred from these abstract representations. 
+
+```{r, "display vector components", echo=FALSE, fig.align="center", fig.width=9, fig.height=1.5}
+
+    display.vec <- rbind(cruz.vec, rubio.vec, clinton.vec, sanders.vec, trump.vec)
+    d.display.vec <- rbind(d.cruz.vec, d.rubio.vec, d.clinton.vec, d.sanders.vec, d.trump.vec)
+    #display.vec$names <- c("cruz", "rubio", "clinton", "sanders", "trump")
+    
+    m1 <- melt(display.vec)
+    
+    p <- ggplot(m1, aes(y=Var1, x=Var2))
+    p <-  p + geom_tile(aes(fill=value), color="white")
+    p <-  p + scale_fill_gradient2(low = "darkred", mid = "paleturquoise", high = "darkgreen", midpoint=0, na.value="grey90")
+    p <- p + ggtitle("vector component values")
+    p <- p + theme(axis.text.x = element_blank(),axis.ticks = element_blank(), legend.position="none")
+    p <- p + xlab("")
+    p <- p + ylab("")
+    
+    p
+```
+
+To emphasize differences, we can look at the variation from the mean of the candidate vectors. This better emphasizes differences between candidates, though, again, little can be inferred. 
+
+```{r, "compute vector component mean variance", echo=FALSE, fig.align="center", fig.width=9, fig.height=1.5}
+    
+    
+    d.m1 <- melt(d.display.vec)
+    
+    p <- ggplot(d.m1, aes(y=Var1, x=Var2))
+    p <-  p + geom_tile(aes(fill=value), color="white")
+    p <-  p + scale_fill_gradient2(low = "darkred", mid = "paleturquoise", high = "darkgreen", midpoint=0, na.value="grey90")
+    p <- p + ggtitle(expression(paste("vector ",delta, " from mean")))
+    p <- p + theme(axis.text.x = element_blank(),axis.ticks = element_blank(), legend.position="none")
+    p <- p + xlab("")
+    p <- p + ylab("")
+    p
+```
+
+####CANDIDATE COSINES
+    
+We can get a more quantitative comparison between candidates by taking the scalar product of the normalized candidate vectors. The angle $\theta$ expressed in milliradians. While the angular deviations are relatively small, they follow the pattern one might expect. For example, reatlively close alignment is found between Trump and Rubio and between Sanders and Clinton. Deviations do not follow strict party lines as the angle between Cruz and Trump is the largest in the table.   
+
+Resulting vectors from the words `r n.s` to `r n.s+n.w` of the candidate "bag of words" filtered for comments containing _`r word.filter`_ and _`r number.of.words`_ and from _`r word.vector.file`_.  
+    
+```{r, "compute candidate theta table", echo=FALSE, results="asis"}
+
+    cruz.trump.theta <- sum(cruz.vec * trump.vec)
+    
+    sanders.trump.theta <- sum(sanders.vec * cruz.vec)
+    
+    clinton.sanders.theta <- sum(clinton.vec * sanders.vec)
+    
+    clinton.cruz.theta <- sum(clinton.vec * cruz.vec)
+    
+    sanders.cruz.theta <- sum(sanders.vec * cruz.vec)
+ 
+    candidate.theta <- matrix(data=c("cruz", "trump", signif(cruz.trump.theta,2), signif(1000*(1-cruz.trump.theta)^(1/2),2), 
+                                   "sanders", "trump", signif(sanders.trump.theta,2), signif(1000*(1-sanders.trump.theta)^(1/2),2), 
+                                   "clinton", "sanders", signif(clinton.sanders.theta,2), signif(1000*(1-clinton.sanders.theta)^(1/2),2), 
+                                   "clinton", "cruz", signif(clinton.cruz.theta,2), signif(1000*(1-clinton.cruz.theta)^(1/2),2), 
+                                   "sanders", "cruz", signif(sanders.cruz.theta,2), signif(1000*(1-sanders.cruz.theta)^(1/2),2)), ncol=4, byrow=TRUE )
+
+    #candidate.theta    
+
+    candidate.theta <- as.data.frame(candidate.theta)
+    
+    colnames(candidate.theta) <- c ("$\\mathbf{a}$ ", "$\\mathbf{b}$", "$\\cos(\\theta)$", "$\\theta$ (mrad)")
+    
+    library(xtable)
+    
+    print(xtable(as.matrix(candidate.theta), caption="Candidate Vectors"), type="html",right = FALSE, comment=FALSE, include.rownames=FALSE, html.table.attributes='border="4" align="center" ' )
+ 
+```
+    
+###VECTOR WORD COMPARISONS TO CANDIDATE POSITIONS
+
+Among the simplest comparisons of candidates is between their vectors and single words. In practice, hand-selected words did not prove very useful. Most single words, even those frequently used by in the debates, did not correlate well to candidate vectors. 
+
+####_COUNTRY_, _PEOPLE_, AND _TAXES_
+
+A comparison that was compelling is comparing condidates vectors to _"people"_, _"country"_, and _"tax"_.  
+ 
+Words `r n.s` to `r n.s+n.w`    
+Filter _`r word.filter`_    
+_`r number.of.words`_ to _`r word.vector.file`_. 
+
+```{r, echo=FALSE, fig.align="center", fig.height=4, fig.width=4}
+
+country.vec <- "country" %>% vectorize.word %>% vector.normalize()
+people.vec <- "people" %>% vectorize.word %>% vector.normalize()
+tax.vec <- "tax" %>% vectorize.word %>% vector.normalize()
+
+wordvec.df <- as.data.frame(rbind(country.vec, people.vec))
+row.names(wordvec.df) <- c("country", "people")
+
+#wordvec.df
+ 
+a <- prcomp(wordvec.df, scale.=TRUE, center=TRUE)
+
+pcdf1 <-  as.data.frame (rbind (#predict(a, rbind(NULL,courage.vec)),
+       #predict(a, rbind(NULL,fear.vec)),
+       #predict(a, rbind(NULL,government.vec)),
+        predict(a, rbind(NULL,country.vec)),
+        predict(a, rbind(NULL,tax.vec)),
+        predict(a, rbind(NULL,people.vec)),
+       #predict(a, rbind(NULL,scare.vec)),
+       #predict(a, rbind(NULL,brave.vec)),
+       #predict(a, rbind(NULL,pride.vec)),
+       #predict(a, rbind(NULL,anger.vec)),
+       predict(a, rbind(NULL,cruz.vec)),
+       predict(a, rbind(NULL,sanders.vec)),
+       predict(a, rbind(NULL,clinton.vec)),
+       predict(a, rbind(NULL,rubio.vec)),
+       predict(a, rbind(NULL,trump.vec))
+       ))
+
+pcdf1$word <-  gsub(".vec", "", row.names(pcdf1))
+
+ggplot(pcdf1, aes(x=PC2, y=PC1, color=word, label=word)) + geom_text()+ scale_x_continuous(expand=c(.2,0)) + scale_y_continuous(expand=c(.2,0)) + theme(legend.position="none") + labs(x="", y="")
+
+
+```
+
+####_TRUMP_ AND _SANDERS_
+
+Words `r n.s` to `r n.s+n.w`    
+Filter _`r word.filter`_    
+_`r number.of.words`_ to _`r word.vector.file`_. 
+
+```{r, "compute candidate principal components", echo=FALSE, fig.align="center", fig.height=4, fig.width=4}
+
+wordvec.df <- as.data.frame(rbind(sanders.vec, trump.vec))
+row.names(wordvec.df) <- c("sanders", "trump")
+
+#wordvec.df
+ 
+a <- prcomp(wordvec.df, scale.=TRUE, center=TRUE)
+
+#biplot(a)
+
+pcdf1 <-  as.data.frame (rbind ( predict(a, rbind(NULL,cruz.vec)),
+       predict(a, rbind(NULL,sanders.vec)),
+       predict(a, rbind(NULL,clinton.vec)),
+       predict(a, rbind(NULL,trump.vec)),
+       predict(a, rbind(NULL,rubio.vec))
+        ))
+     
+
+pcdf1$word <-  gsub(".vec", "", row.names(pcdf1))
+
+ggplot(pcdf1, aes(x=PC2, y=PC1, color=word, label=word)) + geom_text()+ scale_x_continuous(expand=c(.2,0)) + scale_y_continuous(expand=c(.2,0)) + theme(legend.position="none") + labs(x="", y="")
+
+```
+
+###BEST SINGLE WORD MATCHES
+
+What insight can be gained from the word vector _best matching_ the word vector of the candidate? It turns out not much. Here are the top five word vectors which most closely align to
+
+####TRUMP
+Words `r n.s` to `r n.s+n.w`    
+Filter _`r word.filter`_    
+_`r number.of.words`_ to _`r word.vector.file`_. 
+
+```{r, echo=FALSE, fig.align="center", fig.width=8.5, fig.height=3.5, results="asis"}
+#this code chunk creates a graph of the alignment of vectors near a specific pseudo.vector
+
+    plot.word.df <- word.vector.df[,-1]
+    
+    n.dup <- nrow(word.vector.df)
+    ## replicate pseuodvector
+
+    trump.df <- do.call("rbind", replicate(n.dup, trump.vec/sqrt(sum(trump.vec*trump.vec)), simplify = FALSE))
+    
+    
+    
+    ## for the normalized 
+    
+    dot.product <- abs(rowSums(plot.word.df*trump.df))/sqrt(rowSums(plot.word.df*plot.word.df))
+
+    nn <- length(dot.product)
+    
+    word.list.temp <- word.list
+    
+    ## form plot data frame comparing pseudo vector and vector
+    
+    plot.temp <- cbind(as.data.frame(word.list.temp), as.data.frame(dot.product))
+
+    plot.temp <- plot.temp[order(-dot.product),]
+    
+    ## select the top 10
+    plot.temp <- plot.temp[1:50,]
+    ## melt the list
+    melted.plot.temp <- melt(plot.temp, id="word.list.temp")
+    ## make a table to print
+    printed.table <- melted.plot.temp[,c(1,3)]
+    colnames(printed.table) <- c("word", "theta")
+    
+    print(xtable(printed.table[1:10,]), type='html', comment=FALSE, include.rownames=FALSE, html.table.attributes='border="4" align="center" ' )
+    
+
+```
+
+```{r, echo=FALSE, fig.align="center", fig.width=8.5, fig.height=3.5}
+    
+    ## This chunk plots a histogram
+    p <- ggplot(melted.plot.temp, aes(x=word.list.temp, y = value, fill="lightblue"))
+    p <- p + geom_bar(stat="identity", position="dodge")
+    p <- p + theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust=0.5), legend.position="none")
+    p <- p + xlab("")
+    p1 <- p + ylab(expression(paste("cos ",theta)))
+    
+    
+    #print(p1)
+    
+
+
+```
+
+####SANDERS
+
+Words `r n.s` to `r n.s+n.w`    
+Filter _`r word.filter`_    
+_`r number.of.words`_ to _`r word.vector.file`_. 
+
+```{r, echo=FALSE, fig.align="center", fig.width=8.5, fig.height=3.5, results="asis"}
+#this code chunk creates a graph of the alignment of vectors near a specific pseudo.vector
+
+    plot.word.df <- word.vector.df[,-1]
+    n.dup <- nrow(plot.word.df)
+    
+    ## replicate pseuodvector
+
+    t.df <- do.call("rbind", replicate(n.dup, sanders.vec/sqrt(sum(sanders.vec*sanders.vec)), simplify = FALSE))
+    
+    dot.product <- abs(rowSums(plot.word.df*t.df))/sqrt(rowSums(plot.word.df*plot.word.df))
+
+    nn <- length(dot.product)
+    
+    word.list.temp <- word.list
+    
+    ## form plot data frame comparing pseudo vector and vector
+    
+    plot.temp <- cbind(as.data.frame(word.list.temp), as.data.frame(dot.product))
+
+    plot.temp <- plot.temp[order(-dot.product),]
+    
+    plot.temp <- plot.temp[1:50,]
+
+    melted.plot.temp <- melt(plot.temp, id="word.list.temp")
+    
+    ## make a table to print
+    printed.table <- melted.plot.temp[,c(1,3)]
+    
+    colnames(printed.table) <- c("word", "theta")
+    printed.table$word <- as.character(printed.table$word)
+    pttt <- printed.table[order(-printed.table$theta),]
+    
+```
+
+```{r, echo=FALSE, results="asis"}    
+    print(xtable(printed.table[1:10,]), type='html', comment=FALSE, include.rownames=FALSE, html.table.attributes='border="4" align="center" ' )
+    
+    
+```
+
+```{r, echo=FALSE, fig.align="center", fig.width=8.5, fig.height=3.5}
+    
+    p <- ggplot(melted.plot.temp, aes(x=word.list.temp, y = value, fill=variable))
+    p <- p + geom_bar(stat="identity", position="dodge")
+    p <- p + theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust=0.5), legend.position="none")
+    p <- p + xlab("")
+    p1 <- p + ylab(expression(paste("cos ",theta)))
+
+    #print(p1)
+```
+
+####CLINTON
+
+Words `r n.s` to `r n.s+n.w`    
+Filter _`r word.filter`_    
+_`r number.of.words`_ to _`r word.vector.file`_. 
+
+```{r, echo=FALSE, fig.align="center", fig.width=8.5, fig.height=3.5, results="asis"}
+#this code chunk creates a graph of the alignment of vectors near a specific pseudo.vector
+
+    plot.word.df <- word.vector.df[,-1]
+    n.dup <- nrow(plot.word.df)
+    
+    ## replicate pseuodvector
+
+    t.df <- do.call("rbind", replicate(n.dup, clinton.vec/sqrt(sum(clinton.vec*clinton.vec)), simplify = FALSE))
+    
+    dot.product <- abs(rowSums(plot.word.df*t.df))/sqrt(rowSums(plot.word.df*plot.word.df))
+
+    nn <- length(dot.product)
+    
+    word.list.temp <- word.list
+    
+    ## form plot data frame comparing pseudo vector and vector
+    
+    plot.temp <- cbind(as.data.frame(word.list.temp), as.data.frame(dot.product))
+
+    plot.temp <- plot.temp[order(-dot.product),]
+    
+    plot.temp <- plot.temp[1:50,]
+
+    melted.plot.temp <- melt(plot.temp, id="word.list.temp")
+    
+    ## make a table to print
+    printed.table <- melted.plot.temp[,c(1,3)]
+    
+    colnames(printed.table) <- c("word", "theta")
+    printed.table$word <- as.character(printed.table$word)
+    pttt <- printed.table[order(-printed.table$theta),]
+    
+```
+
+```{r, echo=FALSE, results="asis"}    
+    print(xtable(printed.table[1:10,]), type='html', comment=FALSE, include.rownames=FALSE, html.table.attributes='border="4" align="center" ' )
+    
+    
+```
+
+```{r, echo=FALSE, fig.align="center", fig.width=8.5, fig.height=3.5}
+    
+    p <- ggplot(melted.plot.temp, aes(x=word.list.temp, y = value, fill=variable))
+    p <- p + geom_bar(stat="identity", position="dodge")
+    p <- p + theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust=0.5), legend.position="none")
+    p <- p + xlab("")
+    p1 <- p + ylab(expression(paste("cos ",theta)))
+
+    #print(p1)
+```
+
+###COMPARE DIFFERENCES BETWEEN CANDIDATE VECTORS
+
+We can also look for the words that close the difference between two vectors. For instance, what words best match.  
+
+####SANDERS - TRUMP
+Words `r n.s` to `r n.s+n.w`    
+Filter _`r word.filter`_    
+_`r number.of.words`_ to _`r word.vector.file`_.    
+
+```{r, echo=FALSE, fig.align="center", fig.width=8.5, fig.height=3.5, results="asis"}
+#this code chunk creates a graph of the alignment of vectors near a specific pseudo.vector
+
+    plot.word.df <- word.vector.df[,-1]
+    n.dup <- nrow(plot.word.df)
+    
+    ## create normalized compare.vec & replicate pseuodvector
+    compare.vec <- sanders.vec - trump.vec
+    compare.vec <- compare.vec/sqrt(sum(compare.vec*compare.vec))
+
+    t.df <- do.call("rbind", replicate(n.dup, compare.vec, simplify = FALSE))
+    
+    dot.product <- rowSums(plot.word.df*t.df)/sqrt(rowSums(plot.word.df*plot.word.df))
+
+    nn <- length(dot.product)
+    
+    word.list.temp <- word.list
+    
+    ## form plot data frame comparing pseudo vector and vector
+    
+    plot.temp <- cbind(as.data.frame(word.list.temp), as.data.frame(dot.product))
+    
+    plot.temp <- plot.temp[order(-abs(dot.product)),]
+    plot.temp <- plot.temp[1:10,]
+    
+    melted.plot.temp <- melt(plot.temp, id="word.list.temp")
+    
+    ## make a table to print
+    printed.table <- melted.plot.temp[,c(1,3)]
+    colnames(printed.table) <- c("word", "dot.product")
+    
+    print(xtable(printed.table), type='html', comment=FALSE, include.rownames=TRUE, html.table.attributes='border="3" align="center" ' )
+    
+    library(graphics)
+```
+
+```{r, echo=FALSE}
+
+    
+    word1.vec <- vector.normalize(word.vector.df[grep(paste0("^", printed.table$word[1],"$"), word.list),-1])
+    word2.vec <- vector.normalize(word.vector.df[grep(paste0("^", printed.table$word[2],"$"), word.list),-1])
+    word3.vec <- vector.normalize(word.vector.df[grep(paste0("^", printed.table$word[3],"$"), word.list),-1])
+    word4.vec <- vector.normalize(word.vector.df[grep(paste0("^", printed.table$word[4],"$"), word.list),-1])
+    word5.vec <- vector.normalize(word.vector.df[grep(paste0("^", printed.table$word[5],"$"), word.list),-1])
+
+```
+
+```{r, echo=FALSE, fig.align="center", fig.height=4, fig.width=4}
+
+wordvec.df <- as.data.frame(rbind(sanders.vec, trump.vec))
+row.names(wordvec.df) <- c("sanders", "trump")
+
+#wordvec.df
+
+
+ 
+a <- prcomp(wordvec.df, scale.=TRUE, center=TRUE)
+
+pcdf1 <-  as.data.frame (rbind (
+        predict(a, rbind(NULL,word1.vec)),
+        predict(a, rbind(NULL,word2.vec)),
+        predict(a, rbind(NULL,word3.vec)),
+        predict(a, rbind(NULL,word4.vec)),
+        predict(a, rbind(NULL,word5.vec)),
+        
+        predict(a, rbind(NULL,cruz.vec)),
+        predict(a, rbind(NULL,sanders.vec)),
+        predict(a, rbind(NULL,clinton.vec)),
+        predict(a, rbind(NULL,rubio.vec)),
+        predict(a, rbind(NULL,trump.vec))
+       
+       ))
+
+pcdf1$word <-  gsub(".vec", "", row.names(pcdf1))
+pcdf1$word[1:5] <-  gsub(".vec", "", printed.table$word)
+
+ggplot(pcdf1, aes(x=PC2, y=PC1, color=word, label=word)) + geom_text()+ scale_x_continuous(expand=c(.2,0)) + scale_y_continuous(expand=c(.2,0)) + theme(legend.position="none") + labs(x="", y="")
+
+
+```
+
+###TRUMP - CRUZ 
+Words `r n.s` to `r n.s+n.w`    
+Filter _`r word.filter`_    
+_`r number.of.words`_ to _`r word.vector.file`_.  
+
+```{r, echo=FALSE, fig.align="center", fig.width=8.5, fig.height=3.5, results="asis"}
+#this code chunk creates a graph of the alignment of vectors near a specific pseudo.vector
+
+    plot.word.df <- word.vector.df[,-1]
+    n.dup <- nrow(plot.word.df)
+    
+    ## create normalized compare.vec & replicate pseuodvector
+    compare.vec <- trump.vec - cruz.vec
+    compare.vec <- compare.vec/sqrt(sum(compare.vec*compare.vec))
+
+    t.df <- do.call("rbind", replicate(n.dup, compare.vec, simplify = FALSE))
+    
+    dot.product <- rowSums(plot.word.df*t.df)/sqrt(rowSums(plot.word.df*plot.word.df))
+
+    nn <- length(dot.product)
+    
+    word.list.temp <- word.list
+    
+    ## form plot data frame comparing pseudo vector and vector
+    
+    plot.temp <- cbind(as.data.frame(word.list.temp), as.data.frame(dot.product))
+    
+    plot.temp <- plot.temp[order(-abs(dot.product)),]
+    plot.temp <- plot.temp[1:10,]
+    
+    melted.plot.temp <- melt(plot.temp, id="word.list.temp")
+    
+    ## make a table to print
+    printed.table <- melted.plot.temp[,c(1,3)]
+    colnames(printed.table) <- c("word", "dot.product")
+    
+    print(xtable(printed.table), type='html', comment=FALSE, include.rownames=TRUE, html.table.attributes='border="3" align="center" ' )
+    
+    library(graphics)
+```
+
+```{r, echo=FALSE}
+
+##Compute individual word vectors
+
+word1.vec <- vector.normalize(word.vector.df[grep(paste0("^", printed.table$word[1],"$"), word.list),-1])
+word2.vec <- vector.normalize(word.vector.df[grep(paste0("^", printed.table$word[2],"$"), word.list),-1])
+word3.vec <- vector.normalize(word.vector.df[grep(paste0("^", printed.table$word[3],"$"), word.list),-1])
+word4.vec <- vector.normalize(word.vector.df[grep(paste0("^", printed.table$word[4],"$"), word.list),-1])
+word5.vec <- vector.normalize(word.vector.df[grep(paste0("^", printed.table$word[5],"$"), word.list),-1])
+
+
+
+```
+
+```{r, echo=FALSE, fig.align="center", fig.height=4, fig.width=4}
+
+wordvec.df <- as.data.frame(rbind(trump.vec, cruz.vec))
+row.names(wordvec.df) <- c("trump", "cruz")
+
+#wordvec.df
+
+
+ 
+a <- prcomp(wordvec.df, scale.=TRUE, center=TRUE)
+
+pcdf1 <-  as.data.frame (rbind (
+        predict(a, rbind(NULL,word1.vec)),
+        predict(a, rbind(NULL,word2.vec)),
+        predict(a, rbind(NULL,word3.vec)),
+        predict(a, rbind(NULL,word4.vec)),
+        predict(a, rbind(NULL,word5.vec)),
+        
+        predict(a, rbind(NULL,cruz.vec)),
+       predict(a, rbind(NULL,sanders.vec)),
+       predict(a, rbind(NULL,clinton.vec)),
+       predict(a, rbind(NULL,rubio.vec)),
+       predict(a, rbind(NULL,trump.vec))
+       
+       ))
+
+pcdf1$word <-  gsub(".vec", "", row.names(pcdf1))
+pcdf1$word[1:5] <-  gsub(".vec", "", printed.table$word[1:5])
+
+ggplot(pcdf1, aes(x=PC2, y=PC1, color=word, label=word)) + geom_text()+ scale_x_continuous(expand=c(.2,0)) + scale_y_continuous(expand=c(.2,0)) + theme(legend.position="none") + labs(x="", y="")
+
+
+```
+
+###CLINTON-SANDERS  
+
+Words `r n.s` to `r n.s+n.w`    
+Filter _`r word.filter`_    
+_`r number.of.words`_ to _`r word.vector.file`_.  
+
+```{r, echo=FALSE, fig.align="center", fig.width=8.5, fig.height=3.5, results="asis"}
+#this code chunk creates a graph of the alignment of vectors near a specific pseudo.vector
+
+    plot.word.df <- word.vector.df[,-1]
+    n.dup <- nrow(plot.word.df)
+    
+    ## create normalized compare.vec & replicate pseuodvector
+    compare.vec <- clinton.vec - sanders.vec
+    compare.vec <- compare.vec/sqrt(sum(compare.vec*compare.vec))
+
+    t.df <- do.call("rbind", replicate(n.dup, compare.vec, simplify = FALSE))
+    
+    dot.product <- rowSums(plot.word.df*t.df)/sqrt(rowSums(plot.word.df*plot.word.df))
+
+    nn <- length(dot.product)
+    
+    word.list.temp <- word.list
+    
+    ## form plot data frame comparing pseudo vector and vector
+    
+    plot.temp <- cbind(as.data.frame(word.list.temp), as.data.frame(dot.product))
+    
+    plot.temp <- plot.temp[order(-abs(dot.product)),]
+    plot.temp <- plot.temp[1:10,]
+    
+    melted.plot.temp <- melt(plot.temp, id="word.list.temp")
+    
+    ## make a table to print
+    printed.table <- melted.plot.temp[,c(1,3)]
+    colnames(printed.table) <- c("word", "dot.product")
+    
+    print(xtable(printed.table), type='html', comment=FALSE, include.rownames=TRUE, html.table.attributes='border="3" align="center" ' )
+    
+    
+```
+
+```{r, echo=FALSE}
+
+##Compute individual word vectors
+
+word1.vec <- vector.normalize(word.vector.df[grep(paste0("^", printed.table$word[1],"$"), word.list),-1])
+word2.vec <- vector.normalize(word.vector.df[grep(paste0("^", printed.table$word[2],"$"), word.list),-1])
+word3.vec <- vector.normalize(word.vector.df[grep(paste0("^", printed.table$word[3],"$"), word.list),-1])
+word4.vec <- vector.normalize(word.vector.df[grep(paste0("^", printed.table$word[4],"$"), word.list),-1])
+word5.vec <- vector.normalize(word.vector.df[grep(paste0("^", printed.table$word[5],"$"), word.list),-1])
+
+
+
+```
+
+```{r, echo=FALSE, fig.align="center", fig.height=4, fig.width=4}
+
+wordvec.df <- as.data.frame(rbind(clinton.vec, sanders.vec))
+row.names(wordvec.df) <- c("cruz", "trump")
+
+#wordvec.df
+
+
+ 
+a <- prcomp(wordvec.df, scale.=TRUE, center=TRUE)
+
+pcdf1 <-  as.data.frame (rbind (
+        predict(a, rbind(NULL,word1.vec)),
+        predict(a, rbind(NULL,word2.vec)),
+        predict(a, rbind(NULL,word3.vec)),
+        predict(a, rbind(NULL,word4.vec)),
+        predict(a, rbind(NULL,word5.vec)),
+        
+        predict(a, rbind(NULL,cruz.vec)),
+       predict(a, rbind(NULL,sanders.vec)),
+       predict(a, rbind(NULL,clinton.vec)),
+       predict(a, rbind(NULL,rubio.vec)),
+       predict(a, rbind(NULL,trump.vec))
+       
+       ))
+
+pcdf1$word <-  gsub(".vec", "", row.names(pcdf1))
+pcdf1$word[1:5] <-  gsub(".vec", "", printed.table$word[1:5])
+
+ggplot(pcdf1, aes(x=PC2, y=PC1, color=word, label=word)) + geom_text()+ scale_x_continuous(expand=c(.2,0)) + scale_y_continuous(expand=c(.2,0)) + theme(legend.position="none") + labs(x="", y="")
+
+
+```
+
+###COMPARE DIFFERENCES BETWEEN CANDIDATE VECTORS
+
+We can also look for the words that close the difference between two vectors. For instance, what words best match.  
+
+###PARING: SANDERS + `r word.filter` - CLINTON
+Words `r n.s` to `r n.s+n.w`    
+Filter _`r word.filter`_    
+_`r number.of.words`_ to _`r word.vector.file`_.  
+
+```{r, echo=FALSE, fig.align="center", fig.width=8.5, fig.height=3.5, results="asis"}
+#this code chunk creates a graph of the alignment of vectors near a specific pseudo.vector
+
+    plot.word.df <- word.vector.df[,-1]
+    n.dup <- nrow(plot.word.df)
+    
+    third.vec <- word.filter %>% vectorize.word %>% vector.normalize
+    
+    ## replicate pseuodvector
+    compare.vec <- sanders.vec - clinton.vec - third.vec
+    compare.vec <- compare.vec/sqrt(sum(compare.vec*compare.vec))
+
+    t.df <- do.call("rbind", replicate(n.dup, compare.vec, simplify = FALSE))
+    
+    dot.product <- rowSums(plot.word.df*t.df)/sqrt(rowSums(plot.word.df*plot.word.df))
+
+    nn <- length(dot.product)
+    
+    word.list.temp <- word.list
+    
+    ## form plot data frame comparing pseudo vector and vector
+    
+    plot.temp <- cbind(as.data.frame(word.list.temp), as.data.frame(dot.product))
+    
+    plot.temp <- plot.temp[order(-abs(dot.product)),]
+    plot.temp <- plot.temp[1:20,]
+    
+    melted.plot.temp <- melt(plot.temp, id="word.list.temp")
+    
+    ## make a table to print
+    printed.table <- melted.plot.temp[,c(1,3)]
+    colnames(printed.table) <- c("word", "dot.product")
+    
+    print(xtable(printed.table), type='html', comment=FALSE, include.rownames=TRUE, html.table.attributes='border="3" align="center" ' )
+    
+    library(graphics)
+```
+
+```{r, echo=FALSE}
+
+
+word1.vec <- vector.normalize(word.vector.df[grep(paste0("^", printed.table$word[1],"$"), word.list),-1])
+word2.vec <- vector.normalize(word.vector.df[grep(paste0("^", printed.table$word[2],"$"), word.list),-1])
+word3.vec <- vector.normalize(word.vector.df[grep(paste0("^", printed.table$word[3],"$"), word.list),-1])
+word4.vec <- vector.normalize(word.vector.df[grep(paste0("^", printed.table$word[4],"$"), word.list),-1])
+word5.vec <- vector.normalize(word.vector.df[grep(paste0("^", printed.table$word[5],"$"), word.list),-1])
+
+```
+
+```{r, echo=FALSE, fig.align="center", fig.height=4, fig.width=4}
+
+wordvec.df <- as.data.frame(rbind(third.vec, clinton.vec))
+row.names(wordvec.df) <- c("third", "clinton")
+
+#wordvec.df
+
+
+ 
+a <- prcomp(wordvec.df, scale.=TRUE, center=TRUE)
+
+pcdf1 <-  as.data.frame (rbind (
+        predict(a, rbind(NULL,word1.vec)),
+        predict(a, rbind(NULL,word2.vec)),
+        predict(a, rbind(NULL,word3.vec)),
+        predict(a, rbind(NULL,word4.vec)),
+        predict(a, rbind(NULL,word5.vec)),
+        
+        predict(a, rbind(NULL,cruz.vec)),
+       predict(a, rbind(NULL,sanders.vec)),
+       predict(a, rbind(NULL,clinton.vec)),
+       predict(a, rbind(NULL,rubio.vec)),
+       predict(a, rbind(NULL,trump.vec))
+       
+       ))
+
+pcdf1$word <-  gsub(".vec", "", row.names(pcdf1))
+pcdf1$word[1:5] <-  gsub(".vec", "", printed.table$word)
+
+ggplot(pcdf1, aes(x=PC2, y=PC1, color=word, label=word)) + geom_text()+ scale_x_continuous(expand=c(.2,0)) + scale_y_continuous(expand=c(.2,0)) + theme(legend.position="none") + labs(x="", y="")
+
+
+```
+
+###SUMMARY AND CONCLUSION
