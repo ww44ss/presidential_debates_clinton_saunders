@@ -17,3 +17,8 @@ vignettes/*.pdf
 
 # OAuth2 token, see https://github.com/hadley/httr/releases/tag/v0.3
 .httr-oauth
+
+# word vector files
+glove.6B.200d.txt
+glove.6B.300d.txt
+glove.6B.100d.txt
