@@ -1,5 +1,5 @@
 ---
-title: "WORD VECTORS AND PRESIDENTIAL DEBATES IN R"
+title: "HILLARY AND BERNIE SPEECH MODELS"
 author: "WW44SS"
 date: "April 5, 2016"
 output: 
@@ -40,12 +40,10 @@ th, td{
  
 This continuation of [BIAS AND CONTEXT IN PRESIDENTIAL DEBATE TEXTS](https://rpubs.com/ww44ss/Debate_Text) and [HEAT MAPS & LINGUISTICS OF DEBATE SPEECH in R](rpubs.com/ww44ss/HeatMapRDebates), which focused on a "Bag of Words" approach to analyzing the text of Presidential Debates for the 2016 Election Cycle extends the analysis to include "sentiment" based on a word vectors model.
 
-Word vectors, which rely on deep-learning based word-correlation analysis of texts with ~ billions of words, are well known to provide interesting linear structures in the word-vector space. The intention here is to explore these in relation to detecting bias and differences in political speech. 
-
 ###DATA SOURCES AND METHODS
 The text of the presidential debates are downloaded from the [UCSB Presidency Project](http://www.presidency.ucsb.edu/debates.php). Transcripts were pasted into Apple Pages and stored as unformatted .txt files.  
 
-Training word-vectors typically relies on corpora of ~billions of words, far more than the ~100,000 words spoken in the Debates. Hence rather than train the word vectors on the debate text, we'll rely on the "pre-trained" __GloVe__ vectors from [Jeffrey Pennington, Richard Socher, and Christopher D. Manning. 2014](http://nlp.stanford.edu/pubs/glove.pdf) and use them as a basis for analysis.
+We'll rely on the "pre-trained" __GloVe__ vectors from [Jeffrey Pennington, Richard Socher, and Christopher D. Manning. 2014](http://nlp.stanford.edu/pubs/glove.pdf) and use them as a basis for analysis.
 
 
 ```{r, "find debate files in directory", echo=FALSE, warning=FALSE, message=FALSE}
