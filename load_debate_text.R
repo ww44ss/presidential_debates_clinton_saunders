@@ -3,6 +3,7 @@
 load_debate_text <- function(file_name){
     
     ## v 1.1 file_name now requires full directory listing.
+    ## v 1.2 updated some of the gsub regex to improve filtering
     
     ## load raw debate text as data
     ## Read a text file. Filters and conditions the text. Creates a data frame with the row number, candidate name, and text.
@@ -19,7 +20,7 @@ load_debate_text <- function(file_name){
     ##       52 52       TRUMP     I think maybe my greatest weakness ... [laughter]
     
      
-    directory <- "/Users/winstonsaunders/Documents/Presidential_Debates_2015/"
+     #directory <- "/Users/winstonsaunders/Documents/Presidential_Debates_2015/"
     mydata <- read.table(file_name, header=FALSE, sep="\n", stringsAsFactors = FALSE, quote = "")
     
     ## This is what a sample of the the raw data looks like
@@ -32,12 +33,20 @@ load_debate_text <- function(file_name){
     # [6] "CARSON: Well, first of all..."
     
     ## fix a few parasitic cases
+    mydata$V1 <- gsub("O'MALLEY", "OMALLEY", mydata$V1)
+    mydata$V1 <- gsub("\\(.+\\)", "", mydata$V1)
+    mydata$V1 <- gsub("\\[[a-z]+\\]", "", mydata$V1)
+    mydata$V1 <- gsub("\"", "" , mydata$V1)
+
     mydata$V1 <- gsub("\\.\\.\\. ", "", mydata$V1)
     mydata$V1 <- gsub("\\.\\.\\.", "", mydata$V1)
     mydata$V1 <- gsub("ISIS","Isis", mydata$V1)
+    mydata$V1 <- gsub("CNN","cnn", mydata$V1)
+    mydata$V1 <- gsub("NAFTA","nafta", mydata$V1)
+    mydata$V1 <- gsub("EPA","epa", mydata$V1)
     
     ## This regex gets rid of all but the capitalized names and creates a new column $name
-    mydata$name <- gsub(":.+|^[A-Z][^A-Z].+|^[a-z].+", "", mydata$V1 )
+    mydata$name <- gsub(":.+|^[A-Z][^A-Z].+|^[a-z].+|\\[.+|[0-9].+", "", mydata$V1 )
     
     ## Fill in the blank rows of $name by looking to the row above if blank
     for (i in 2: nrow(mydata)){
