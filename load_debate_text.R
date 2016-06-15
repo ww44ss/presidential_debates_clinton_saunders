@@ -2,6 +2,8 @@
 
 load_debate_text <- function(file_name){
     
+    ## v 1.1 file_name now requires full directory listing.
+    
     ## load raw debate text as data
     ## Read a text file. Filters and conditions the text. Creates a data frame with the row number, candidate name, and text.
     ## INPUT:
@@ -18,7 +20,7 @@ load_debate_text <- function(file_name){
     
      
     directory <- "/Users/winstonsaunders/Documents/Presidential_Debates_2015/"
-    mydata <- read.table(paste0(directory, file_name), header=FALSE, sep="\n", stringsAsFactors = FALSE, quote = "")
+    mydata <- read.table(file_name, header=FALSE, sep="\n", stringsAsFactors = FALSE, quote = "")
     
     ## This is what a sample of the the raw data looks like
     ## mydata[100:105,1]
