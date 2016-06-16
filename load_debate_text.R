@@ -61,7 +61,7 @@ load_debate_text <- function(file_name){
     mydata$text <- gsub ("'", "", mydata$text)
     mydata$text <- gsub ("=", "", mydata$text)
     mydata$text <- gsub ("[A-Z]{2,}: ", "", mydata$text)
-    mydata$text <- tolower(mydata$text)
+    #mydata$text <- tolower(mydata$text)
     mydata$text <- gsub ("   ", " ", mydata$text)
     mydata$text <- gsub ("  ", " ", mydata$text)
     

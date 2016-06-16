@@ -237,8 +237,6 @@ r_all_f <- mutate(r_all_f, afinn_sentiment = get_sentiment(r_all_f$text, method 
 
 ### Democrats Sentiment
 
-
-
 ```{r, fig.align="center", fig.width=9, fig.height=5, echo=FALSE}
 
 p <- ggplot(d_all_f, aes(x = concat_index, y = bing_sentiment, fill=debate, color=debate)) + 
@@ -249,11 +247,13 @@ p <- ggplot(d_all_f, aes(x = concat_index, y = bing_sentiment, fill=debate, colo
 p 
 ```
 
+### Republican Sentiment
+
 ```{r, fig.align="center", fig.width=9, fig.height=7, echo=FALSE}
 
 
 p <- ggplot(r_all_f, aes(x = concat_index, y = bing_sentiment, fill=debate, color=debate)) + 
-    geom_line() + 
+    geom_bar(stat = 'identity') + 
     facet_grid(candidate.name~.) 
 p 
 
@@ -261,8 +261,73 @@ p
 
 ```
 
+### Polarized Statements
 
+What statements were the most polarized (i.e. most positive and negative) of each candidate. We can slice this using filter and summarize.
 
+####Hillary Clinton
+#####Max Positive Sentiment (afinn)
+
+```{r, echo=2}
+
+hillary_max <- d_all_f %>% filter(name == "CLINTON") %>% filter(afinn_sentiment == max(afinn_sentiment))
+
+hillary_max_text <- hillary_max$text
+
+print(hillary_max_text)
+
+```
+
+#####Max Positive Sentiment (bing)
+
+```{r, echo=2}
+
+hillary_max <- d_all_f %>% filter(name == "CLINTON") %>% filter(afinn_sentiment == max(bing_sentiment))
+
+hillary_max_text <- hillary_max$text
+
+print(hillary_max_text)
+
+```
+#####Max Negative Sentiment (afinn)
+```{r, echo=FALSE}
+
+hillary_min <- d_all_f %>% filter(name == "CLINTON") %>% filter(afinn_sentiment == min(afinn_sentiment))
+
+hillary_min_text <- hillary_min$text
+
+print(hillary_min_text)
+
+```
+
+####Donald Trump
+#####Max Positive Sentiment (afinn)
+
+```{r, echo=2}
+
+donald_max <- r_all_f %>% filter(name == "TRUMP") %>% filter(afinn_sentiment == max(afinn_sentiment))
+
+print(donald_max$text)
+
+```
+
+#####Max Positive Sentiment (bing)
+
+```{r, echo=2}
+
+donald_max <- r_all_f %>% filter(name == "TRUMP") %>% filter(afinn_sentiment == max(bing_sentiment))
+
+print(donald_max$text)
+
+```
+#####Max Negative Sentiment (afinn)
+```{r, echo=FALSE}
+
+donald_min <- r_all_f %>% filter(name == "TRUMP") %>% filter(afinn_sentiment == min(bing_sentiment))
+
+print(donald_min$text)
+
+```
 
 
 ```{r, fig.width=5, fig.height=8, echo=FALSE, fig.align='center'}
