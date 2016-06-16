@@ -219,24 +219,29 @@ print(unique(r_all_f$debate))
 
 ```
 
+
+
 ###Compute Sentiment
+We'll use __mutate__ to add a "Sentiment" column to the data.
 
 
 ```{r}
 
+## add sentiment using two different methods
+d_all_f <- mutate(d_all_f, afinn_sentiment = get_sentiment(d_all_f$text, method = "afinn"), bing_sentiment = get_sentiment(d_all_f$text, method = "bing"))
+r_all_f <- mutate(r_all_f, afinn_sentiment = get_sentiment(r_all_f$text, method = "afinn"), bing_sentiment = get_sentiment(r_all_f$text, method = "bing"))
 
-## add sentiment
-d_all_f <- mutate(d_all_f, sentiment = get_sentiment(d_all_f$text, method = "afinn"))
-
-r_all_f <- mutate(r_all_f, sentiment = get_sentiment(r_all_f$text, method = "afinn"))
 
 
 ```
 
+### Democrats Sentiment
+
+
 
 ```{r, fig.align="center", fig.width=9, fig.height=5, echo=FALSE}
 
-p <- ggplot(d_all_f, aes(x = concat_index, y = sentiment, fill=debate, color=debate)) + 
+p <- ggplot(d_all_f, aes(x = concat_index, y = bing_sentiment, fill=debate, color=debate)) + 
     geom_bar(stat='identity') + 
     facet_grid(candidate.name~.)
     #geom_smooth(span = 0.3, n = 100)
@@ -247,8 +252,8 @@ p
 ```{r, fig.align="center", fig.width=9, fig.height=7, echo=FALSE}
 
 
-p <- ggplot(r_all_f, aes(x = concat_index, y = sentiment, fill=debate, color=debate)) + 
-    geom_bar(stat="identity") + 
+p <- ggplot(r_all_f, aes(x = concat_index, y = bing_sentiment, fill=debate, color=debate)) + 
+    geom_line() + 
     facet_grid(candidate.name~.) 
 p 
 
@@ -264,8 +269,8 @@ p
 
 trump_all <- r_all_f %>% filter(candidate.name=="TRUMP")
 
-p <- ggplot(trump_all, aes(x = speaking_index, y = sentiment)) + 
-    geom_bar(stat="identity", color = ) + 
+p <- ggplot(trump_all, aes(x = speaking_index, y = afinn_sentiment)) + 
+    geom_bar(stat="identity", color = "blue") + 
     facet_grid(debate~.) 
 p 
 
@@ -274,7 +279,7 @@ p
 
 ```{r, fig.width=5, fig.height=8, echo=FALSE, fig.align='center'}
 
-p <- ggplot(r_all_f[r_all_f$candidate.name == "CRUZ",], aes(x = speaking_index, y = sentiment)) + 
+p <- ggplot(r_all_f[r_all_f$candidate.name == "CRUZ",], aes(x = speaking_index, y = afinn_sentiment)) + 
     geom_bar(stat="identity", color = "salmon") + 
     facet_grid(debate~.) 
 p 
