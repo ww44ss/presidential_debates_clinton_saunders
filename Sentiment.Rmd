@@ -8,9 +8,9 @@ output:
 ---
 <style>
   .col2 {
-    columns: 2 300px;         /* number of columns and width in pixels */
-    -webkit-columns: 2 300px; /* chrome, safari */
-    -moz-columns: 2 300px;    /* firefox */
+    columns: 2 200px;         /* number of columns and width in pixels */
+    -webkit-columns: 2 200px; /* chrome, safari */
+    -moz-columns: 2 200px;    /* firefox */
   }
   .col3 {
     columns: 3 200px;
@@ -22,9 +22,8 @@ output:
 <style>
 tr:hover {background-color: #BBFFFF}
 table { 
-    width: 80%;
+    width: 60%;
     display: table;
-    border-collapse: collapse;
     border-spacing: 18px;
     border-color: #AAAAFF;
     background-color: #AADDAA;
@@ -33,6 +32,8 @@ table {
 }
 th, td{
     text-align: center;
+    border: 1px solid black;
+    border-collapse: collapse;
 }
 </style>
 
@@ -141,7 +142,7 @@ The text of the presidential debates are downloaded from the [UCSB Presidency Pr
 
     ## create dummy files for all republicans
     r_all <- NULL
-    r.names.list <- c("QUINTANILLA", "KASICH", "HUCKABEE", "BUSH", "RUBIO", "TRUMP", "CARSON", "FIORINA", "CRUZ", "CHRISTIE", "PAUL", "HARWOOD", "QUICK", "CRAMER", "SANTELLI", "EPPERSON",                    "TAPPER", "DINAN","BASH","HEWITT", "CAVUTO", "BARTIROMO","BAKER","UNKNOWN","BLITZER","JOSH JACOB, COLLEGE STUDENT", "QUESTION" ,"AUDIENCE", "BAIER", "KELLY", "WALLACE","MUIR", "RADDATZ", "HAM" , "MCELVEEN", "DICKERSON", "STRASSEL", "GARRETT", "ARRARÁS", "CUOMO", "HANNITY", "UNIDENTIFIABLE"  )
+    r.names.list <- c("QUINTANILLA", "KASICH", "HUCKABEE", "BUSH", "RUBIO", "TRUMP", "CARSON", "FIORINA", "CRUZ", "CHRISTIE", "PAUL", "HARWOOD", "QUICK", "CRAMER", "SANTELLI", "EPPERSON", "TAPPER", "DINAN","BASH","HEWITT", "CAVUTO", "BARTIROMO","BAKER","UNKNOWN","BLITZER","JOSH JACOB, COLLEGE STUDENT", "QUESTION" ,"AUDIENCE", "BAIER", "KELLY", "WALLACE","MUIR", "RADDATZ", "HAM" , "MCELVEEN", "DICKERSON", "STRASSEL", "GARRETT", "ARRARÁS", "CUOMO", "HANNITY", "UNIDENTIFIABLE"  )
 
 
     for (file_name in republican.files){ 
@@ -211,7 +212,6 @@ The text of the presidential debates are downloaded from the [UCSB Presidency Pr
 
 ```{r, "dummify commentators", echo=FALSE}
 
-
 d.candidates.list <- c("CHAFEE", "WEBB", "CLINTON", "SANDERS", "OMALLEY")
 
 r.candidates.list <- c("KASICH", "HUCKABEE", "BUSH", "RUBIO", "CARSON", "FIORINA", "CRUZ", "CHRISTIE", "PAUL", "TRUMP", "FIORINA")
@@ -230,9 +230,19 @@ d_all_f <- d_all_f %>% mutate(candidate.name = ifelse(name %in% d.candidates.lis
 
 Here are the dates of the analyzed Democratic Debates
 
+<style>
+table { 
+    width: 200px;
+    margin-left: auto;
+    margin-right: auto;
+    }
+</style>
+
 ```{r, ech0=FALSE, results='asis'}
 
-print(xtable(as.matrix(unique(d_all_f$debate))), type="html", size="small")
+print(xtable(as.matrix(unique(d_all_f$debate)), align = c("c", "c")), type="html", include.rownames=FALSE, include.colnames = FALSE)
+
+
 
 ```
 
@@ -242,17 +252,16 @@ Here are the dates of the analyzed Republican Debates
 
 ```{r, ech0=FALSE, results='asis'}
 
-print(xtable(as.matrix(unique(r_all_f$debate))), type="html", size="small")
+print(xtable(as.matrix(unique(r_all_f$debate)), align = c("c", "c")), type="html", include.rownames=FALSE, include.colnames = FALSE)
 
 
 ```
 
-##Use 'mutate()' to add computed sentiment  
+##Use `mutate()` to add computed sentiment  
 
-We'll use the 'mutate()' to add a "sentiment" column to the data.
+We'll use the `mutate()` to add a "sentiment" column to the data. In this case I'll just use two of the standard methods "bing" and "afinn" included in the package. Each of these associates a specific "sentiment" to a set of words, then simply sums the result. 
 
 ```{r}
-
 ## add sentiment using two different methods (afinn and bing)
 d_all_f <- mutate(d_all_f, afinn_sentiment = get_sentiment(d_all_f$text, method = "afinn"), bing_sentiment = get_sentiment(d_all_f$text, method = "bing"))
 
@@ -261,31 +270,28 @@ r_all_f <- mutate(r_all_f, afinn_sentiment = get_sentiment(r_all_f$text, method 
 ```
 
 
-
 ### Democratic Debate Sentiment
 
-The plot below shows the trend of the overall sentiment of the all debates and all candidates. The "other" category lumps all audience and moderator comments together. Notice that the candidate sentiments generally show much higher variablity than "other," with February 11 2016 standing out particularly.  
+The plot below shows the trend of the overall sentiment of the all debates and all candidates. The "other" category lumps all audience and moderator comments together.  
 
 ```{r, fig.align="center", fig.width=9, fig.height=5, echo=FALSE, warning=FALSE}
 
-p <- ggplot(d_all_f, aes(x = concat_index, y = bing_sentiment, fill=debate, color=debate)) + 
+    p <- ggplot(d_all_f, aes(x = concat_index, y = bing_sentiment, fill=debate, color=debate)) + 
     geom_bar(stat='identity') + 
     facet_grid(candidate.name~.)
-    #geom_smooth(span = 0.3, n = 100)
 
-p 
+    print(p)
 ```
 
 
-
-[Coverage](http://www.cnn.com/2016/02/11/politics/democratic-debate-highlights/) of the February 11, 2016 debate revealed the following comments:   
+Notice that the candidate sentiments have high variablity than do the moderators (as might be expected), with the debate of February 11 2016 standing out. [Press Coverage](http://www.cnn.com/2016/02/11/politics/democratic-debate-highlights/) of the February 11, 2016 debate revealed the following comments:   
 _Much of the debate lacked the bitterness of earlier forums as Clinton and Sanders laid out differences on policy questions. But the confrontation during the PBS "NewsHour" Democratic debate simulcast on CNN flared into open anger in the final moments._
 _Clinton accused her rival of not standing with Obama after he endorsed a book by CNN contributor Bill Press critical of the president. She said Sanders had called Obama "weak" and a "disappointment" in the past and she warned "the kind of criticism that we heard from Sen. Sanders about our president, I expect from Republicans. I do not expect (it) from someone running for the Democratic nomination to succeed President Obama."_  
   
 Let's see if we can pick this up....  
 
-####Use __*filter()*__ to drill into February 11 2016  
-Again we can use _{dplyr}_ functions to get the data and then use the transform function in the _{syuzhet}_ package to extract low frequency components.
+####Use `filter()` to drill into February 11 2016  
+Again we can use `{dplyr}` functions to get the data and then use the transform function in the `{syuzhet}` package to extract low frequency components.
 
 ```{r, echo = 2:5, fig.align="center", fig.height=4, fig.width=6}
 
@@ -304,12 +310,21 @@ ggplot(tt, aes(y = filtered.sentiment, x=seq_along(filtered.sentiment))) +
 
 Here are the relevant comments
 
+
+<style>
+table { 
+    width: 900px;
+    margin-left: auto;
+    margin-right: auto;
+    }
+</style>
+
 ```{r, echo=FALSE, results='asis'}
 
 ## create temp table of interesting data
-temptable<-xtable(cbind(single_d_debate$text[15:17], single_d_debate$afinn_sentiment[15:17]))
-colnames(temptable) <- c("text", "afinn_sentiment")
-print(temptable, type="html", size="small")
+temptable<-xtable(cbind(single_d_debate$text[15:17], single_d_debate$afinn_sentiment[15:17], single_d_debate$bing_sentiment[15:17]))
+colnames(temptable) <- c("text", "afinn", "bing")
+print(temptable, type="html", size="small", include.rownames=FALSE)
 
 ```
 
@@ -380,7 +395,7 @@ ggplot(tt, aes(y = filtered.sentiment, x=seq_along(filtered.sentiment))) +
 
 ```
 
-###Using _filter()_ to plot a histogram of specific candidate sentiment
+###Using `filter()` to plot a histogram of specific candidate sentiment
 
 ####SANDERS
 
