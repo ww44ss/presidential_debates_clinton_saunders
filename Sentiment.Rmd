@@ -20,15 +20,15 @@ output:
 </style>
 
 <style>
-tr:hover {background-color: #BBFFFF}
+tr:hover {background-color: #FFEE75}
 table { 
-    width: 60%;
+    width: 40%;
     display: table;
     border-spacing: 18px;
     border-color: #AAAAFF;
-    background-color: #AADDAA;
+    background-color: #FFFFFF;
     padding: 2px;
-    font: 12px arial, sans-serif;
+    font: 14px arial, sans-serif;
 }
 th, td{
     text-align: center;
@@ -226,7 +226,7 @@ d_all_f <- d_all_f %>% mutate(candidate.name = ifelse(name %in% d.candidates.lis
 
 ```
 
-###Democratic Debates
+##DEMOCRAITC DEBATES
 
 Here are the dates of the analyzed Democratic Debates
 
@@ -285,35 +285,39 @@ The plot below shows the trend of the overall sentiment of the all debates and a
 
 
 Notice that the candidate sentiments have high variablity than do the moderators (as might be expected), with the debate of February 11 2016 standing out. [Press Coverage](http://www.cnn.com/2016/02/11/politics/democratic-debate-highlights/) of the February 11, 2016 debate revealed the following comments:   
-_Much of the debate lacked the bitterness of earlier forums as Clinton and Sanders laid out differences on policy questions. But the confrontation during the PBS "NewsHour" Democratic debate simulcast on CNN flared into open anger in the final moments._
+_Much of the debate lacked the bitterness...[but] the confrontation during the PBS "NewsHour" Democratic debate simulcast on CNN flared into open anger in the final moments._
 _Clinton accused her rival of not standing with Obama after he endorsed a book by CNN contributor Bill Press critical of the president. She said Sanders had called Obama "weak" and a "disappointment" in the past and she warned "the kind of criticism that we heard from Sen. Sanders about our president, I expect from Republicans. I do not expect (it) from someone running for the Democratic nomination to succeed President Obama."_  
   
 Let's see if we can pick this up....  
 
-####Use `filter()` to drill into February 11 2016  
+###Use `filter()` to drill into February 11 2016  
 Again we can use `{dplyr}` functions to get the data and then use the transform function in the `{syuzhet}` package to extract low frequency components.
 
-```{r, echo = 2:5, fig.align="center", fig.height=4, fig.width=6}
 
-candidate_x <- "SANDERS"
+```{r, fig.align="center", fig.height=4, fig.width=6, warning=FALSE}
+candidate_x <- "CLINTON"
 debate_x <- "February 11 2016"
 single_d_debate <- d_all_f %>% filter(debate == debate_x, name == candidate_x)
-filtered.sentiment = get_dct_transform(single_d_debate$afinn_sentiment, x_reverse_len=nrow(single_d_debate), low_pass_size = 6) 
+filtered.sentiment = get_dct_transform(single_d_debate$afinn_sentiment, x_reverse_len=nrow(single_d_debate), low_pass_size = 7) 
 
 tt <- filtered.sentiment %>% as.data.frame()
+ttx <- cbind(tt, single_d_debate$afinn_sentiment)
+colnames(ttx) <- c("filtered", "sentiment")
 
-ggplot(tt, aes(y = filtered.sentiment, x=seq_along(filtered.sentiment))) +
-    geom_line(color = "darkblue", size = 1.5) + 
-    ggtitle(paste(candidate_x, "on", debate_x))
+p <- ggplot(ttx, aes(y = filtered, x=seq_along(filtered))) +
+    geom_bar(aes(y=sentiment), stat='identity', fill="salmon", color = "grey60", alpha=0.8) +
+    geom_line(color = "blue", size = 1.5) + 
+    ggtitle(paste(candidate_x, "on", debate_x))+
+    xlab("sequence") +
+    ylab("sentiment")
+
+p
 
 ```
 
-Here are the relevant comments
-
-
 <style>
 table { 
-    width: 900px;
+    width: 800px;
     margin-left: auto;
     margin-right: auto;
     }
@@ -322,35 +326,19 @@ table {
 ```{r, echo=FALSE, results='asis'}
 
 ## create temp table of interesting data
-temptable<-xtable(cbind(single_d_debate$text[15:17], single_d_debate$afinn_sentiment[15:17], single_d_debate$bing_sentiment[15:17]))
-colnames(temptable) <- c("text", "afinn", "bing")
+temptable<-xtable(cbind(c(39:41),single_d_debate$text[39:41], single_d_debate$afinn_sentiment[39:41], single_d_debate$bing_sentiment[39:41]))
+colnames(temptable) <- c("seq", "text", "afinn", "bing")
 print(temptable, type="html", size="small", include.rownames=FALSE)
 
 ```
-
-
-```{r, echo = 2:5, fig.align="center", fig.height=4, fig.width=6}
-candidate_x <- "CLINTON"
-debate_x <- "February 11 2016"
-single_d_debate <- d_all_f %>% filter(debate == debate_x, name == candidate_x)
-filtered.sentiment = get_dct_transform(single_d_debate$afinn_sentiment, x_reverse_len=nrow(single_d_debate), low_pass_size = 6) 
-
-tt <- filtered.sentiment %>% as.data.frame()
-
-ggplot(tt, aes(y = filtered.sentiment, x=seq_along(filtered.sentiment))) +
-    geom_line(color = "blue", size = 1.5) + 
-    ggtitle(paste(candidate_x, "on", debate_x))
-
-print(single_d_debate$text[41:42])
-
-```
-
-
+  
 Indeed, we see a sharp negative trend in Hillary Clinton's bing sentiment score at the end of the debate which parallels the observation in the press above. 
+
+
 
 ## Republican Debate Sentiment
 
-Here, there are a lot more candidates so the density of data is lower, especially in the earlier debates, where there was a plethora of them.
+There were are a lot more candidates in the Republican filed, so the density of data is lower, especially in the earlier debates, where there was a plethora of them.
 
 ```{r, fig.align="center", fig.width=9, fig.height=7, echo=FALSE, warning=FALSE}
 
@@ -365,35 +353,54 @@ p
 ```
 
 
-####Drilling in on March 3, 2016   
-The March 3, 2016 debate was of note because it struck possibly the lowest note of the presidential debates. It was heralded in the press [Donald Trump defends size of his penis](http://www.cnn.com/2016/03/03/politics/donald-trump-small-hands-marco-rubio/) in a remarkalbe exchange with Marco Rubio. 
+###Donald Trump's Penis March 3, 2016   
+The March 3, 2016 Republican debate will forever live in infamy because it struck possibly the lowest note of a presidential debate, ever. The press headlines read [Donald Trump defends size of his penis](http://www.cnn.com/2016/03/03/politics/donald-trump-small-hands-marco-rubio/) in coverage of a remarkable exchange with Marco Rubio. 
+  
+Again we can use `filter()` to get the data and then use the transform function in the `{syuzhet}` package to extract low frequency components.
 
-```{r, echo = FALSE, fig.align="center", fig.height=4, fig.width=6}
 
+```{r, fig.align="center", fig.height=4, fig.width=6, warning=FALSE}
 candidate_x <- "TRUMP"
 debate_x <- "March 3 2016"
-single_d_debate <- r_all_f %>% filter(debate == debate_x, name == candidate_x)
-filtered.sentiment = get_dct_transform(single_d_debate$afinn_sentiment, x_reverse_len=200, low_pass_size = 6) 
+single_r_debate <- r_all_f %>% filter(debate == debate_x, name == candidate_x)
+filtered.sentiment = get_dct_transform(single_r_debate$afinn_sentiment, x_reverse_len=nrow(single_r_debate), low_pass_size = 10) 
 
 tt <- filtered.sentiment %>% as.data.frame()
+ttx <- cbind(tt, single_r_debate$afinn_sentiment)
+colnames(ttx) <- c("filtered", "sentiment")
 
-ggplot(tt, aes(y = filtered.sentiment, x=seq_along(filtered.sentiment))) +
-    geom_line(color = "darkred", size = 1.5) + 
-    ggtitle(paste(candidate_x, "on", debate_x))
+p <- ggplot(ttx, aes(y = filtered, x=seq_along(filtered))) +
+    geom_bar(aes(y=sentiment/max(sentiment)), stat='identity', fill="salmon", color = "grey60", alpha=0.8) +
+    geom_line(color = "blue", size = 1.5) + 
+    ggtitle(paste(candidate_x, "on", debate_x))+
+    xlab("sequence") +
+    ylab("sentiment")
 
-
-candidate_x <- "RUBIO"
-debate_x <- "March 3 2016"
-single_d_debate <- r_all_f %>% filter(debate == debate_x, name == candidate_x)
-filtered.sentiment = get_dct_transform(single_d_debate$afinn_sentiment, x_reverse_len=200, low_pass_size = 6) 
-
-tt <- filtered.sentiment %>% as.data.frame()
-
-ggplot(tt, aes(y = filtered.sentiment, x=seq_along(filtered.sentiment))) +
-    geom_line(color = "red", size = 1.5) + 
-    ggtitle(paste(candidate_x, "on", debate_x))
+p
 
 ```
+
+<style>
+table { 
+    width: 800px;
+    margin-left: auto;
+    margin-right: auto;
+    }
+</style>
+
+```{r, echo=FALSE, results='asis'}
+
+## create temp table of interesting data
+seq_table <- 14:16
+
+temptable<-xtable(cbind(c(seq_table),single_r_debate$text[seq_table], single_r_debate$afinn_sentiment[seq_table], single_r_debate$bing_sentiment[seq_table]))
+colnames(temptable) <- c("seq", "text", "afinn", "bing")
+print(temptable, type="html", size="small", include.rownames=FALSE)
+
+```
+  
+
+
 
 ###Using `filter()` to plot a histogram of specific candidate sentiment
 
@@ -473,11 +480,11 @@ ggplot(rbind(clinton, sanders), aes(x = debate, y = mean_afinn, fill = name)) + 
 
 ```
 
-These correlate prety well. 
+These correlate pretty well. 
 
 ```{r}
 
-ggplot(d_all_f %>% filter(name == "SANDERS" | name == "CLINTON"), aes(x = afinn_sentiment, y = 2*bing_sentiment)) + geom_jitter(pch=21, width=2, height=2, alpha=.4, fill = "darkred") + geom_smooth(formula = y ~ x) + ggtitle("afinn versus bing sentiment")
+ggplot(d_all_f %>% filter(name == "CLINTON"), aes(x = afinn_sentiment, y = 2*bing_sentiment)) + geom_jitter(pch=21, width=2, height=2, alpha=.4, fill = "darkred") + geom_smooth(formula = y ~ x) + ggtitle("afinn versus 2*bing sentiment")
 #+ geom_point(alpha = 0.3, size = 3)
 
 ```
