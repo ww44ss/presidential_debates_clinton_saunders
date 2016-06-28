@@ -400,8 +400,6 @@ print(temptable, type="html", size="small", include.rownames=FALSE)
 ```
   
 
-
-
 ###Using `filter()` to plot a histogram of specific candidate sentiment
 
 ####SANDERS
@@ -424,7 +422,7 @@ ggplot(sanders_sent, aes(x=afinn_sentiment, ..density.., color = debate)) +
 ```
 
 
-In this case we can see some definite differences in between the sentiments of different debates. Particularly the Feb 4, 2016 debate. We can dig a little deeper by looking at the text
+In this case we can see differences between the debates. Particularly the Feb 4, 2016 debate. We can dig a little deeper by looking at the text
 
 ```{r}
 
