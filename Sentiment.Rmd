@@ -455,7 +455,7 @@ cruz_low$text[5:6]
 
 
 
-###Use **group_by()** to look at summary debate stats
+##Use `group_by()` to look at summary debate stats
 
 ####Democrats
 
@@ -484,8 +484,7 @@ These correlate pretty well.
 
 ```{r}
 
-ggplot(d_all_f %>% filter(name == "CLINTON"), aes(x = afinn_sentiment, y = 2*bing_sentiment)) + geom_jitter(pch=21, width=2, height=2, alpha=.4, fill = "darkred") + geom_smooth(formula = y ~ x) + ggtitle("afinn versus 2*bing sentiment")
-#+ geom_point(alpha = 0.3, size = 3)
+ggplot(d_all_f %>% filter(name == "CLINTON"), aes(x = afinn_sentiment, y = 2*bing_sentiment)) + geom_jitter(pch=21, width=2, height=2, alpha=.4, fill = "darkred") + geom_smooth(formula = y ~ x) + ggtitle("afinn versus 2*bing sentiment for Hillary Clinton")
 
 ```
 
